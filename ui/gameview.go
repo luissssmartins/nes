@@ -83,6 +83,8 @@ func (view *GameView) Update(t, dt float64) {
 		view.director.ShowMenu()
 	}
 	updateControllers(window, console)
+	audio := view.director.audio.channel
+	dt *= 1 + (0.3-float64(len(audio))/float64(cap(audio)))*0.02
 	console.StepSeconds(dt)
 	gl.BindTexture(gl.TEXTURE_2D, view.texture)
 	setTexture(console.Buffer())

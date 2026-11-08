@@ -17,9 +17,6 @@ const (
 )
 
 func init() {
-	// we need a parallel OS thread to avoid audio stuttering
-	runtime.GOMAXPROCS(2)
-
 	// we need to keep OpenGL calls on a single thread
 	runtime.LockOSThread()
 }
@@ -49,6 +46,7 @@ func Run(paths []string) {
 		log.Fatalln(err)
 	}
 	window.MakeContextCurrent()
+	glfw.SwapInterval(1)
 
 	// initialize gl
 	if err := gl.Init(); err != nil {

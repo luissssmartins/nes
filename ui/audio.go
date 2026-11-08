@@ -7,12 +7,11 @@ type Audio struct {
 	sampleRate     float64
 	outputChannels int
 	channel        chan float32
+	last           float32
 }
 
 func NewAudio() *Audio {
-	a := Audio{}
-	a.channel = make(chan float32, 44100)
-	return &a
+	return &Audio{}
 }
 
 func (a *Audio) Start() error {
@@ -20,7 +19,8 @@ func (a *Audio) Start() error {
 	if err != nil {
 		return err
 	}
-	parameters := portaudio.HighLatencyParameters(nil, host.DefaultOutputDevice)
+	parameters := portaudio.LowLatencyParameters(nil, host.DefaultOutputDevice)
+	a.channel = make(chan float32, int(parameters.SampleRate/10))
 	stream, err := portaudio.OpenStream(parameters, a.Callback)
 	if err != nil {
 		return err
@@ -39,16 +39,16 @@ func (a *Audio) Stop() error {
 }
 
 func (a *Audio) Callback(out []float32) {
-	var output float32
+	output := a.last
 	for i := range out {
 		if i%a.outputChannels == 0 {
 			select {
 			case sample := <-a.channel:
 				output = sample
 			default:
-				output = 0
 			}
 		}
 		out[i] = output
 	}
+	a.last = output
 }
