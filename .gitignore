@@ -1,2 +1,12 @@
 /roms
+*.nes
 
+# build output (go build -o dist/nes .) and release zips
+/dist/
+
+# screenshots (Space) and GIFs (Tab) saved to the working dir
+[0-9][0-9][0-9].png
+[0-9][0-9][0-9].gif
+
+# macOS
+.DS_Store
