@@ -60,8 +60,10 @@ type APU struct {
 	frameValue  byte
 	frameIRQ    bool
 	filterChain FilterChain
-	frameTimer  float64 
+	frameTimer  float64
 	sampleTimer float64
+	sampleSum   float32 
+	sampleCount float32
 }
 
 func NewAPU(console *Console) *APU {
@@ -112,18 +114,21 @@ func (apu *APU) Step() {
 		apu.frameTimer += frameCounterRate
 		apu.stepFrameCounter()
 	}
-	
+
 	if apu.sampleRate != 0 {
+		apu.sampleSum += apu.output()
+		apu.sampleCount++
 		apu.sampleTimer--
 		if apu.sampleTimer <= 0 {
 			apu.sampleTimer += apu.sampleRate
-			apu.sendSample()
+			apu.sendSample(apu.sampleSum / apu.sampleCount)
+			apu.sampleSum, apu.sampleCount = 0, 0
 		}
 	}
 }
 
-func (apu *APU) sendSample() {
-	output := apu.filterChain.Step(apu.output())
+func (apu *APU) sendSample(sample float32) {
+	output := apu.filterChain.Step(sample)
 	select {
 	case apu.channel <- output:
 	default:
@@ -143,9 +148,9 @@ func (apu *APU) output() float32 {
 
 // mode 0:    mode 1:       function
 // ---------  -----------  -----------------------------
-//  - - - f    - - - - -    IRQ (if bit 6 is clear)
-//  - l - l    l - l - -    Length counter and sweep
-//  e e e e    e e e e -    Envelope and linear counter
+//   - - - f    - - - - -      IRQ (if bit 6 is clear)
+//   - l - l    l - l - -      Length counter and sweep
+//     e e e e    e e e e -    Envelope and linear counter
 func (apu *APU) stepFrameCounter() {
 	switch apu.framePeriod {
 	case 4:
@@ -606,7 +611,7 @@ func (t *Triangle) output() byte {
 		return 0
 	}
 	if t.timerPeriod < 3 {
-		return 0;
+		return 0
 	}
 	if t.lengthValue == 0 {
 		return 0
