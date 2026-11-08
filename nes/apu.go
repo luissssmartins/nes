@@ -1,6 +1,9 @@
 package nes
 
-import "encoding/gob"
+import (
+	"encoding/gob"
+	"math"
+)
 
 const frameCounterRate = CPUFrequency / 240.0
 
@@ -9,7 +12,7 @@ var lengthTable = []byte{
 	12, 16, 24, 18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30,
 }
 
-var dutyTable = [][]byte{
+var dutyTable = [4][8]byte{
 	{0, 1, 0, 0, 0, 0, 0, 0},
 	{0, 1, 1, 0, 0, 0, 0, 0},
 	{0, 1, 1, 1, 1, 0, 0, 0},
@@ -57,6 +60,8 @@ type APU struct {
 	frameValue  byte
 	frameIRQ    bool
 	filterChain FilterChain
+	frameTimer  float64 
+	sampleTimer float64
 }
 
 func NewAPU(console *Console) *APU {
@@ -66,6 +71,7 @@ func NewAPU(console *Console) *APU {
 	apu.pulse1.channel = 1
 	apu.pulse2.channel = 2
 	apu.framePeriod = 4
+	apu.frameTimer = frameCounterRate
 	apu.dmc.cpu = console.CPU
 	return &apu
 }
@@ -88,6 +94,7 @@ func (apu *APU) Load(decoder *gob.Decoder) error {
 	decoder.Decode(&apu.framePeriod)
 	decoder.Decode(&apu.frameValue)
 	decoder.Decode(&apu.frameIRQ)
+	apu.frameTimer = frameCounterRate - math.Mod(float64(apu.cycle), frameCounterRate)
 	apu.pulse1.Load(decoder)
 	apu.pulse2.Load(decoder)
 	apu.triangle.Load(decoder)
@@ -97,19 +104,21 @@ func (apu *APU) Load(decoder *gob.Decoder) error {
 }
 
 func (apu *APU) Step() {
-	cycle1 := apu.cycle
 	apu.cycle++
-	cycle2 := apu.cycle
 	apu.stepTimer()
-	f1 := int(float64(cycle1) / frameCounterRate)
-	f2 := int(float64(cycle2) / frameCounterRate)
-	if f1 != f2 {
+	apu.frameTimer--
+
+	if apu.frameTimer <= 0 {
+		apu.frameTimer += frameCounterRate
 		apu.stepFrameCounter()
 	}
-	s1 := int(float64(cycle1) / apu.sampleRate)
-	s2 := int(float64(cycle2) / apu.sampleRate)
-	if s1 != s2 {
-		apu.sendSample()
+	
+	if apu.sampleRate != 0 {
+		apu.sampleTimer--
+		if apu.sampleTimer <= 0 {
+			apu.sampleTimer += apu.sampleRate
+			apu.sendSample()
+		}
 	}
 }
 
