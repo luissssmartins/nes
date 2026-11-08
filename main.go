@@ -20,13 +20,28 @@ func main() {
 }
 
 func getPaths() []string {
-	var arg string
 	args := os.Args[1:]
-	if len(args) == 1 {
-		arg = args[0]
-	} else {
-		arg, _ = os.Getwd()
+	if len(args) == 0 {
+		wd, _ := os.Getwd()
+		args = []string{wd}
 	}
+	var result []string
+	for _, arg := range args {
+		if isURL(arg) {
+			p, err := downloadROM(arg)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			result = append(result, p)
+		} else {
+			result = append(result, localPaths(arg)...)
+		}
+	}
+	return result
+}
+
+func localPaths(arg string) []string {
 	info, err := os.Stat(arg)
 	if err != nil {
 		return nil
